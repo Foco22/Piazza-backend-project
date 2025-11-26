@@ -211,8 +211,3 @@ Docker Compose will automatically set up MongoDB, Mongo Express, and the API tog
    ```bash
    docker-compose down
    ```
-
-**Services Access:**
-- **API**: http://localhost:5000
-- **Mongo Express**: http://localhost:8081 (admin/admin123)
-- **MongoDB**: localhost:27017
