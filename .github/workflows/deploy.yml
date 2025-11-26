@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 env:
-  DOCKER_IMAGE: pizza-backend-project
+  DOCKER_IMAGE: piazza-backend-project
   DOCKER_TAG: latest
 
 
@@ -92,20 +92,20 @@ jobs:
           command_timeout: 10m
           script: |
             # Create project directory if it doesn't exist
-            mkdir -p ~/Pizza-backend-project
-            cd ~/Pizza-backend-project
+            mkdir -p ~/Piazza-backend-project
+            cd ~/Piazza-backend-project
 
             # Pull latest image
             docker pull ${{ secrets.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}
 
             # Stop and remove old container
-            docker stop Pizza-backend-project || true
-            docker rm Pizza-backend-project || true
+            docker stop Piazza-backend-project || true
+            docker rm Piazza-backend-project || true
 
 
             # Run new container
             docker run -d \
-              --name Pizza-backend-project \
+              --name Piazza-backend-project \
               --restart unless-stopped \
               -p 5000:5000 \
               -e NODE_ENV=production \
@@ -119,11 +119,11 @@ jobs:
             docker image prune -af
 
             # Show container status
-            docker ps -a | grep Pizza-backend-project
+            docker ps -a | grep Piazza-backend-project
 
             # Show logs
             echo "=== Recent logs ==="
-            docker logs --tail 50 Pizza-backend-project
+            docker logs --tail 50 Piazza-backend-project
 
       # Step 6: Verify deployment
       - name: Verify deployment
