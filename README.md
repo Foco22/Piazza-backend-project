@@ -1,10 +1,12 @@
-# Piazza API - Backend 
+# Piazza API - Backend
 
-RESTful API for the Piazza social platform with JWT authentication.
+This is the backend for the Piazza Project, a social platform.
 
 ## Description
 
-Piazza API is a RESTful backend service for a Piazza-style social platform with JWT-based authentication. This API provides secure endpoints for user registration, authentication, post management, and social interactions (likes, dislikes, comments). Built with Express.js and MongoDB, it features containerized deployment with Docker and Kubernetes orchestration for scalable cloud infrastructure.
+The main objective of this project is to provide services for the Piazza Project, which contains the different APIs and models for the application. The main services are:
+   1- Users Services: Contains the services for login, register and authenticate a user.
+   2- Interactions Services: Contains all the services for creating a post, comments, disliking or liking a post, etc.
 
 
 ## Project Structure
@@ -51,6 +53,8 @@ cam-backend/
 - MongoDB (running locally or connection string)
 
 ## Installation & Setup
+
+This project can be installed in the following ways:
 
 ### Option 1: Run with Node.js (Local Development)
 
