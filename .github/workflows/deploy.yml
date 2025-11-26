@@ -1,0 +1,153 @@
+name: Deploy Piazza API to VM
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+env:
+  DOCKER_IMAGE: piazza-api
+  DOCKER_TAG: latest
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      # Step 2: Set up Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Step 3: Log in to Docker Hub
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # Step 4: Build and push Docker image
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}
+            ${{ secrets.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ github.sha }}
+          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGE }}:buildcache,mode=max
+
+      # Step 4.5: Debug SSH configuration
+      - name: Debug SSH Configuration
+        run: |
+          echo "=== SSH Configuration Debug ==="
+          echo "VM_HOST is set: ${{ secrets.VM_HOST != '' }}"
+          echo "VM_USERNAME is set: ${{ secrets.VM_USERNAME != '' }}"
+          echo "VM_SSH_KEY is set: ${{ secrets.VM_SSH_KEY != '' }}"
+
+          # Show actual values (GitHub will mask them with ***)
+          echo "VM_HOST value: ${{ secrets.VM_HOST }}"
+          echo "VM_USERNAME value: ${{ secrets.VM_USERNAME }}"
+          echo "SSH Port: ${{ secrets.VM_SSH_PORT || 22 }}"
+
+          # Verify SSH key format
+          echo "SSH Key length: $(echo '${{ secrets.VM_SSH_KEY }}' | wc -c)"
+          echo "SSH Key line count: $(echo '${{ secrets.VM_SSH_KEY }}' | wc -l)"
+          echo "SSH Key starts with: $(echo '${{ secrets.VM_SSH_KEY }}' | head -c 30)"
+          echo "SSH Key ends with: $(echo '${{ secrets.VM_SSH_KEY }}' | tail -c 30)"
+
+          # Expected values check
+          echo ""
+          echo "=== Expected Values ==="
+          echo "VM_HOST should be: 34.31.213.170"
+          echo "VM_USERNAME should be: francisco_macaya22"
+          echo "SSH Key should be: ~411 chars, 7 lines, start with '-----BEGIN OPENSSH PRIVATE KEY-----'"
+
+          # Test basic connectivity
+          echo ""
+          echo "=== Testing network connectivity ==="
+          ping -c 2 ${{ secrets.VM_HOST }} || echo "⚠️ Cannot ping VM (this is OK if ICMP is blocked)"
+          nc -zv ${{ secrets.VM_HOST }} ${{ secrets.VM_SSH_PORT || 22 }} 2>&1 || echo "⚠️ Cannot connect to SSH port"
+
+      # Step 5: Deploy to VM via SSH
+      - name: Deploy to VM
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USERNAME }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          port: ${{ secrets.VM_SSH_PORT || 22 }}
+          debug: true
+          timeout: 30s
+          command_timeout: 10m
+          script: |
+            # Create project directory if it doesn't exist
+            mkdir -p ~/piazza-api
+            cd ~/piazza-api
+
+            # Pull latest image
+            docker pull ${{ secrets.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}
+
+            # Stop and remove old container
+            docker stop piazza-api || true
+            docker rm piazza-api || true
+
+
+            # Run new container
+            docker run -d \
+              --name piazza-api \
+              --restart unless-stopped \
+              -p 5000:5000 \
+              -e NODE_ENV=production \
+              -e PORT=5000 \
+              -e MONGODB_URI="${{ secrets.MONGODB_URI }}" \
+              -e JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+              -e JWT_EXPIRE="${{ secrets.JWT_EXPIRE }}" \
+              ${{ secrets.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}
+
+            # Clean up old images
+            docker image prune -af
+
+            # Show container status
+            docker ps -a | grep piazza-api
+
+            # Show logs
+            echo "=== Recent logs ==="
+            docker logs --tail 50 piazza-api
+
+      # Step 6: Verify deployment
+      - name: Verify deployment
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USERNAME }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          port: ${{ secrets.VM_SSH_PORT || 22 }}
+          script: |
+            # Wait for container to be healthy
+            sleep 10
+
+            # Check container health
+            if docker ps | grep piazza-api | grep -q "healthy"; then
+              echo "✅ Container is healthy"
+            else
+              echo "⚠️ Container health check not passing yet"
+            fi
+
+            # Test API endpoint
+            response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/api/health)
+            if [ "$response" = "200" ]; then
+              echo "✅ API is responding (HTTP $response)"
+            else
+              echo "❌ API health check failed (HTTP $response)"
+              exit 1
+            fi
