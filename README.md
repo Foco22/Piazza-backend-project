@@ -159,11 +159,60 @@ This project can be installed in the following ways:
    docker rm piazza-api
    ```
 
-**Using Docker Compose (if available):**
-```bash
-# Start services
-docker-compose up -d
+### Option 3: Run with Docker Compose (Recommended)
 
-# Stop services
-docker-compose down
-```
+Docker Compose will automatically set up MongoDB, Mongo Express, and the API together.
+
+1. **Create environment file:**
+
+   Copy the example environment file and configure it:
+   ```bash
+   cp .env.example .env
+   ```
+
+   Edit the `.env` file with your settings:
+   ```env
+   # Server Configuration
+   NODE_ENV=production
+   PORT=5000
+
+   # MongoDB Configuration - Local Docker
+   MONGODB_URI=mongodb://admin:admin123@mongodb:27017/chamaleon?authSource=admin
+
+   # JWT Configuration
+   JWT_SECRET=your_super_secret_jwt_key_change_this_in_production_minimum_32_characters
+   JWT_EXPIRE=7d
+
+   # MongoDB Local Configuration
+   MONGO_ROOT_PASSWORD=admin123
+   MONGO_EXPRESS_PASSWORD=admin123
+   ```
+
+2. **Start all services:**
+   ```bash
+   docker-compose up -d
+   ```
+
+3. **Check services status:**
+   ```bash
+   docker-compose ps
+   ```
+
+4. **View logs:**
+   ```bash
+   # All services
+   docker-compose logs -f
+
+   # Specific service
+   docker-compose logs -f piazza-api
+   ```
+
+5. **Stop services:**
+   ```bash
+   docker-compose down
+   ```
+
+**Services Access:**
+- **API**: http://localhost:5000
+- **Mongo Express**: http://localhost:8081 (admin/admin123)
+- **MongoDB**: localhost:27017
