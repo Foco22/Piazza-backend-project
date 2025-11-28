@@ -1,7 +1,11 @@
 const User = require('../models/User');
 const generateToken = require('../utils/generateToken');
 
-
+/**
+ * @desc    Register a new user
+ * @route   POST /api/auth/register
+ * @access  Public
+ */
 const register = async (req, res) => {
   try {
     const { username, email, password } = req.body;
@@ -55,12 +59,15 @@ const register = async (req, res) => {
   }
 };
 
-
+/**
+ * @desc    Authenticate user and get token
+ * @route   POST /api/auth/login
+ * @access  Public
+ */
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Find user by email and include password field
     const user = await User.findOne({ email }).select('+password');
 
     if (!user) {
@@ -70,7 +77,6 @@ const login = async (req, res) => {
       });
     }
 
-    // Check password
     const isPasswordMatch = await user.comparePassword(password);
 
     if (!isPasswordMatch) {
@@ -80,7 +86,6 @@ const login = async (req, res) => {
       });
     }
 
-    // Generate token
     const token = generateToken(user._id);
 
     res.status(200).json({
@@ -105,7 +110,11 @@ const login = async (req, res) => {
   }
 };
 
-
+/**
+ * @desc    Get current logged in user
+ * @route   GET /api/auth/me
+ * @access  Private
+ */
 const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);

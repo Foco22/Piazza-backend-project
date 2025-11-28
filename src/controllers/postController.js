@@ -11,10 +11,8 @@ const createPost = async (req, res) => {
   try {
     const { title, topics, message, expirationMinutes } = req.body;
 
-    // Calculate expiration time
     const expirationTime = new Date(Date.now() + expirationMinutes * 60 * 1000);
 
-    // Create post
     const post = await Post.create({
       title,
       topics,
@@ -23,7 +21,6 @@ const createPost = async (req, res) => {
       expirationTime
     });
 
-    // Populate owner information
     await post.populate('owner', 'username email');
 
     res.status(201).json({
@@ -50,7 +47,6 @@ const getPosts = async (req, res) => {
   try {
     const { topic, status } = req.query;
 
-    // Build query
     const query = {};
 
     if (topic) {
@@ -61,7 +57,6 @@ const getPosts = async (req, res) => {
       query.status = status;
     }
 
-    // Get posts
     const posts = await Post.find(query)
       .populate('owner', 'username email')
       .populate('likes', 'username')
@@ -134,7 +129,6 @@ const likePost = async (req, res) => {
       });
     }
 
-    // Check if post is expired
     if (post.isExpired()) {
       return res.status(400).json({
         success: false,
@@ -142,7 +136,6 @@ const likePost = async (req, res) => {
       });
     }
 
-    // Check if user is the owner of the post
     if (post.owner.toString() === req.user._id.toString()) {
       return res.status(403).json({
         success: false,
@@ -150,36 +143,30 @@ const likePost = async (req, res) => {
       });
     }
 
-    // Check if user already liked
     const alreadyLiked = post.likes.includes(req.user._id);
 
     if (alreadyLiked) {
-      // Remove like from post
       post.likes = post.likes.filter(
         userId => userId.toString() !== req.user._id.toString()
       );
 
-      // Delete the interaction record
       await Interaction.findOneAndDelete({
         user: req.user._id,
         post: post._id,
         type: 'like'
       });
     } else {
-      // Add like to post and remove dislike if exists
       post.likes.push(req.user._id);
       post.dislikes = post.dislikes.filter(
         userId => userId.toString() !== req.user._id.toString()
       );
 
-      // Remove any existing dislike interaction
       await Interaction.findOneAndDelete({
         user: req.user._id,
         post: post._id,
         type: 'dislike'
       });
 
-      // Create interaction record with metadata
       await Interaction.create({
         user: req.user._id,
         post: post._id,
@@ -230,7 +217,6 @@ const dislikePost = async (req, res) => {
       });
     }
 
-    // Check if post is expired
     if (post.isExpired()) {
       return res.status(400).json({
         success: false,
@@ -238,7 +224,6 @@ const dislikePost = async (req, res) => {
       });
     }
 
-    // Check if user is the owner of the post
     if (post.owner.toString() === req.user._id.toString()) {
       return res.status(403).json({
         success: false,
@@ -246,36 +231,30 @@ const dislikePost = async (req, res) => {
       });
     }
 
-    // Check if user already disliked
     const alreadyDisliked = post.dislikes.includes(req.user._id);
 
     if (alreadyDisliked) {
-      // Remove dislike from post
       post.dislikes = post.dislikes.filter(
         userId => userId.toString() !== req.user._id.toString()
       );
 
-      // Delete the interaction record
       await Interaction.findOneAndDelete({
         user: req.user._id,
         post: post._id,
         type: 'dislike'
       });
     } else {
-      // Add dislike to post and remove like if exists
       post.dislikes.push(req.user._id);
       post.likes = post.likes.filter(
         userId => userId.toString() !== req.user._id.toString()
       );
 
-      // Remove any existing like interaction
       await Interaction.findOneAndDelete({
         user: req.user._id,
         post: post._id,
         type: 'like'
       });
 
-      // Create interaction record with metadata
       await Interaction.create({
         user: req.user._id,
         post: post._id,
@@ -327,7 +306,6 @@ const addComment = async (req, res) => {
       });
     }
 
-    // Check if post is expired
     if (post.isExpired()) {
       return res.status(400).json({
         success: false,
@@ -335,13 +313,11 @@ const addComment = async (req, res) => {
       });
     }
 
-    // Add comment to post
     post.comments.push({
       user: req.user._id,
       text
     });
 
-    // Create interaction record with metadata
     await Interaction.create({
       user: req.user._id,
       post: post._id,
@@ -385,7 +361,6 @@ const getMostActivePost = async (req, res) => {
   try {
     const { topic } = req.params;
 
-    // Find all live posts for the topic
     const posts = await Post.find({
       topics: topic,
       status: 'Live'
@@ -402,7 +377,6 @@ const getMostActivePost = async (req, res) => {
       });
     }
 
-    // Find post with highest interactions
     let mostActivePost = posts[0];
     let maxInteractions = mostActivePost.totalInteractions;
 
