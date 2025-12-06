@@ -43,12 +43,12 @@ const createPost = async (req, res) => {
 
 /**
  * @desc    Get all posts or filter by topic
- * @route   GET /api/posts?topic=Tech&status=Live
- * @access  Public
+ * @route   GET /api/posts?topic=Tech&status=Live&page=1&limit=10
+ * @access  Private
  */
 const getPosts = async (req, res) => {
   try {
-    const { topic, status } = req.query;
+    const { topic, status, page = 1, limit = 10 } = req.query;
 
     // Build query
     const query = {};
@@ -61,18 +61,41 @@ const getPosts = async (req, res) => {
       query.status = status;
     }
 
-    // Get posts
+    // Pagination setup
+    const pageNum = parseInt(page, 10);
+    const limitNum = Math.min(parseInt(limit, 10), 100); 
+    const skip = (pageNum - 1) * limitNum;
+
+    // Get total count for pagination metadata
+    const total = await Post.countDocuments(query);
+
+    // Get posts with pagination
     const posts = await Post.find(query)
       .populate('owner', 'username email')
       .populate('likes', 'username')
       .populate('dislikes', 'username')
       .populate('comments.user', 'username')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum);
+
+    // Calculate pagination metadata
+    const totalPages = Math.ceil(total / limitNum);
+    const hasNextPage = pageNum < totalPages;
+    const hasPrevPage = pageNum > 1;
 
     res.status(200).json({
       success: true,
       count: posts.length,
-      data: { posts }
+      data: { posts },
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages,
+        hasNextPage,
+        hasPrevPage
+      }
     });
   } catch (error) {
     console.error('Get posts error:', error);
@@ -87,7 +110,7 @@ const getPosts = async (req, res) => {
 /**
  * @desc    Get single post by ID
  * @route   GET /api/posts/:id
- * @access  Public
+ * @access  Private
  */
 const getPost = async (req, res) => {
   try {
@@ -379,7 +402,7 @@ const addComment = async (req, res) => {
 /**
  * @desc    Get most active post by topic (highest likes + dislikes)
  * @route   GET /api/posts/most-active/:topic
- * @access  Public
+ * @access  Private
  */
 const getMostActivePost = async (req, res) => {
   try {
@@ -433,7 +456,7 @@ const getMostActivePost = async (req, res) => {
 /**
  * @desc    Get expired posts by topic
  * @route   GET /api/posts/expired/:topic
- * @access  Public
+ * @access  Private
  */
 const getExpiredPosts = async (req, res) => {
   try {
@@ -496,7 +519,7 @@ const getMyInteractions = async (req, res) => {
 /**
  * @desc    Get all interactions for a specific post
  * @route   GET /api/posts/:id/interactions
- * @access  Public
+ * @access  Private
  */
 const getPostInteractions = async (req, res) => {
   try {
